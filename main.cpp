@@ -3,7 +3,7 @@
 #include <cmath>
 #include <fstream>
 #include <vector>
-#include "matplotlibcpp.h"
+//#include "matplotlibcpp.h"
 
 #define _USE_MATH_DEFINES
 #define TIMEPOINTS 256
@@ -11,23 +11,19 @@
 #define FREQU 2000
 
 void printValueX(float*);
-//void wCalc(float* wconst);
-float getDFT(int, float*);
-void DFT(float*, float*);  //discrete Fourier transform
-float getiDFT(int, float*);
-void iDFT(float*, float*); //inverse discrete Fourier transform
-void diff(float*, float*, float*);   //compere original signal with signsl after DFT and iDFT
+
 float generatorSimple (int, float*, float*, float*);
 void getSimpleSignal(float*, float*, float*, float*); //get pseudo random signal based on NUM=14 harmonic signals
 
+void DFT (float *input, float **output, int size);
+float abs0(float re, float im);
+float phase(float re, float im);
+
 using namespace std;
-namespace plt = matplotlibcpp;
+//namespace plt = matplotlibcpp;
 
 int main(){
-
   float valuesX [TIMEPOINTS] = {0};
-  float spctr [TIMEPOINTS] = {0};
-  float val [TIMEPOINTS] = {0};
 
   float amplitudes[NUM] = {0};
   float phathe[NUM] = {0};
@@ -42,60 +38,29 @@ int main(){
   }
 
   getSimpleSignal(&valuesX[0], &amplitudes[0], &phathe[0], &freq[0]);
-  DFT(&valuesX[0], &spctr[0]);
-  iDFT(&spctr[0], &val[0]);
 
-  //float dif[TIMEPOINTS] = {0};
-  //diff(&dif[0], &valuesX[0], &val[0]);
+  // Memory Allocation
+  float** X = new float*[2];
+  X[0] = new float[TIMEPOINTS/2];
+  X[1] = new float[TIMEPOINTS/2];
 
-  //show spectr of generated pseudo random signal
-  vector <double> u(TIMEPOINTS);
-  for(int i = 0 ; i < TIMEPOINTS; i++)
-    u[i] = spctr[i];
+  // Calculation
+  DFT(valuesX, X, TIMEPOINTS);
 
-  plt::xkcd();
-  plt::plot(u);
-  plt::show();
+  for(int i = 0; i < TIMEPOINTS/2; i++){
+      if(abs0(X[0][i], X[1][i])<0.001){
+          X[0][i] = 0;
+          X[1][i] = 0;
+      }
+      cout << i << ' ' << abs0(X[0][i], X[1][i]) << '\n';
+  }
+
+  // Memory Deallocation
+  delete[] X[0];
+  delete[] X[1];
+  delete[] X;
 
   return 0;
-}
-
-void diff(float* result, float* a, float* b){
-  for(int i = 0; i < TIMEPOINTS; i++)
-    *(result + i) = fabs(*(a + i)) - fabs(*(b + i));
-}
-
-void DFT(float* valuesX, float* result){
-  for(int i = 0; i < TIMEPOINTS; i++)
-    *(result + i) = getDFT(i, valuesX);
-}
-
-float getDFT(int m, float* valuesX){
-  float result = 0;
-  float tmp = m * M_PI / TIMEPOINTS;
-  for (int i = 0; i < TIMEPOINTS; i++)
-    result += *(valuesX + i) * (cos(tmp * i) - sin (tmp * i));
-  return result;
-}
-
-void iDFT(float* values, float* result){
-  for(int i = 0; i < TIMEPOINTS; i++)
-    *(result + i) = getDFT(i, values) / TIMEPOINTS;
-}
-
-float getiDFT(int m, float* values){
-  float result = 0;
-  float tmp = m * M_PI / TIMEPOINTS;
-  for (int i = 0; i < TIMEPOINTS; i++)
-    result += *(values + i) * (cos(tmp * i) + sin (tmp * i));
-  return result;
-}
-
-void readTXT(float* valuesX){
-  ifstream file("3.txt", ios::in);
-  for (int i = 0; i < TIMEPOINTS; i++)
-    file >> *(valuesX + i);
-  file.close();
 }
 
 void printValueX (float* pValueX){
@@ -114,4 +79,44 @@ float generatorSimple (int t, float* amplitudes, float* ph, float* fr){
 void getSimpleSignal(float* pValueX, float* amplitudes, float* ph, float* fr){
   for (int i = 0; i < TIMEPOINTS; i++)
     *(pValueX + i) = generatorSimple(i, amplitudes, ph, fr);
+}
+
+void DFT (float *input, float **output, int size)
+{
+    // Memory Allocation
+    float angle;
+    float *reSum = new float[size];
+    float *imSum = new float[size];
+
+    // Frequency Cycle
+    for (int k = 0; k < size/2; k++)
+    {
+        reSum[k] = 0;
+        imSum[k] = 0;
+        // Point Cycle
+        for (int n = 0; n < size; n++)
+        {
+            angle     = -2*M_PI*k*n/size;
+            reSum[k] += input[n] * cos(angle);
+            imSum[k] += input[n] * sin(angle);
+        }
+        output[0][k] = reSum[k]*2/size;
+        output[1][k] = imSum[k]*2/size;
+    }
+
+    // Memory Deallocation
+    delete[] reSum;
+    delete[] imSum;
+}
+
+//Complex Numbers
+// Absolute value
+float abs0(float re, float im)
+{
+    return pow(re*re + im*im, 0.5);
+}
+// Phase
+float phase(float re, float im)
+{
+    return atan2(im, re)*180/M_PI;
 }
